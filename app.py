@@ -190,25 +190,144 @@ with tabs[3]:
         "The estimate assumes a constant service rate at each counter."
     )
 
+
 with tabs[4]:
+
     st.subheader("Discrete-event simulation")
-    c1,c2,c3=st.columns(3)
-    sim_lam=c1.number_input("Arrival rate",min_value=1.0,value=60.0,step=1.0,key="s_lam")
-    sim_c=c2.number_input("Counters",min_value=1,max_value=int(max_c),value=min(4,int(max_c)),step=1,key="s_c")
-    duration=c3.number_input("Simulation duration (hours)",min_value=1,max_value=24,value=3,step=1)
-    routing=st.selectbox("Customer routing policy",["shortest","round_robin"],format_func=lambda x:"Shortest estimated workload" if x=="shortest" else "Round robin")
-    if st.button("Run simulation",type="primary"):
-        sim=simulate_checkout(sim_lam,mu,int(sim_c),duration_hours=float(duration),routing=routing)
-        a,b,d,e=st.columns(4)
-        a.metric("Customers served",sim["customers"])
-        b.metric("Average waiting time",f"{sim['avg_wait_min']:.2f} min")
-        d.metric("Maximum waiting time",f"{sim['max_wait_min']:.2f} min")
-        e.metric("Allocation Efficiency",f"{result['allocation_efficiency']:.2f}%")
+
+    c1, c2, c3 = st.columns(3)
+
+    sim_lam = c1.number_input(
+        "Arrival rate",
+        min_value=1.0,
+        value=60.0,
+        step=1.0,
+        key="s_lam"
+    )
+
+    sim_c = c2.number_input(
+        "Counters",
+        min_value=1,
+        max_value=int(max_c),
+        value=min(4, int(max_c)),
+        step=1,
+        key="s_c"
+    )
+
+    duration = c3.number_input(
+        "Simulation duration (hours)",
+        min_value=1,
+        max_value=24,
+        value=3,
+        step=1
+    )
+
+    routing = st.selectbox(
+        "Customer routing policy",
+        ["shortest", "round_robin"],
+        format_func=lambda x:
+            "Shortest estimated workload"
+            if x == "shortest"
+            else "Round robin"
+    )
+
+    if st.button("Run simulation", type="primary"):
+
+        sim = simulate_checkout(
+            sim_lam,
+            mu,
+            int(sim_c),
+            duration_hours=float(duration),
+            routing=routing
+        )
+
+        st.subheader("Simulation Results")
+
+        # Performance metrics
+        a, b, d, e = st.columns(4)
+
+        a.metric(
+            "Customers served",
+            sim["customers"]
+        )
+
+        b.metric(
+            "Average waiting time",
+            f"{sim['avg_wait_min']:.2f} min"
+        )
+
+        d.metric(
+            "Maximum waiting time",
+            f"{sim['max_wait_min']:.2f} min"
+        )
+
+        efficiency = sim["allocation_efficiency"]
+
+        e.metric(
+            "Allocation efficiency",
+            f"{efficiency:.2f}%"
+            if efficiency is not None
+            else "N/A"
+        )
+
+        # Waiting time distribution
         if sim["waits_min"]:
-            st.plotly_chart(px.histogram(pd.DataFrame({"Waiting time (min)":sim["waits_min"]}),
-                                         x="Waiting time (min)",nbins=25,title="Distribution of simulated waiting times"),
-                            use_container_width=True)
-        st.caption("Simulation uses stochastic arrivals and service times. Repeat with several seeds and compare policies before drawing conclusions.")
+
+            st.plotly_chart(
+                px.histogram(
+                    pd.DataFrame({
+                        "Waiting time (min)": sim["waits_min"]
+                    }),
+                    x="Waiting time (min)",
+                    nbins=25,
+                    title="Distribution of simulated waiting times"
+                ),
+                use_container_width=True
+            )
+
+        # Counter workload distribution
+        st.subheader("Counter Workload Distribution")
+
+        workload_data = pd.DataFrame({
+            "Counter": [
+                f"Counter {i + 1}"
+                for i in range(int(sim_c))
+            ],
+
+            "Customers allocated": sim["counter_customers"],
+
+            "Workload (minutes)": sim["counter_workloads_min"]
+        })
+
+        st.plotly_chart(
+            px.bar(
+                workload_data,
+                x="Counter",
+                y="Workload (minutes)",
+                text_auto=".2f",
+                title="Total service workload assigned to each counter"
+            ),
+            use_container_width=True
+        )
+
+        st.dataframe(
+            workload_data,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.caption(
+            "Allocation efficiency is calculated using Jain's Fairness "
+            "Index. A higher percentage indicates a more balanced "
+            "distribution of service workload among active counters."
+        )
+
+        st.caption(
+            "Simulation uses stochastic arrivals and service times. "
+            "Repeat with several seeds and compare policies before "
+            "drawing conclusions."
+        )
+
 
 with tabs[5]:
     st.subheader("Demand input data")

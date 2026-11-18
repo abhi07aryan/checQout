@@ -5,9 +5,9 @@ import numpy as np
 
 
 def simulate_checkout(
-    lam=60,
-    mu=30,
-    counters=4,
+    lam,
+    mu,
+    counters,
     duration_hours=3,
     seed=7,
     routing="shortest"
@@ -15,16 +15,15 @@ def simulate_checkout(
     """
     SimPy simulation of independent checkout counters.
 
-    Arrivals: Poisson process
-    Service times: Exponential distribution
-
     Routing policies:
     1. shortest: Counter with the fewest expected customers
     2. round_robin: Customers distributed cyclically
 
-    Allocation efficiency:
-    Calculated using Jain's Fairness Index based on
-    total service workload assigned to each counter.
+    Calculates:
+    - Average and maximum waiting time
+    - Average time in system
+    - Workload assigned to each counter
+    - Allocation efficiency using Jain's Fairness Index
     """
 
     if lam <= 0 or mu <= 0 or counters < 1 or duration_hours <= 0:
@@ -33,11 +32,11 @@ def simulate_checkout(
     if routing not in ("shortest", "round_robin"):
         raise ValueError("Routing must be 'shortest' or 'round_robin'.")
 
-    # Separate random generators for reproducibility
+    # Reproducible random generators
     arrival_rng = random.Random(seed)
     service_rng = random.Random(seed + 1)
 
-    # Generate customer arrival times
+    # Generate arrival times
     arrival_times = []
     current_time = 0.0
 
@@ -49,7 +48,7 @@ def simulate_checkout(
 
         arrival_times.append(current_time)
 
-    # Generate service requirements independently of routing
+    # Generate service times
     service_times = [
         service_rng.expovariate(mu)
         for _ in arrival_times
@@ -65,17 +64,17 @@ def simulate_checkout(
     waits = []
     system_times = []
 
-    # NEW: Track total service workload assigned to each counter
+    # Track workload and customer allocation
     counter_workloads = [0.0] * counters
+    counter_customers = [0] * counters
 
     def customer(customer_id, arrival_time, service_time):
 
-        # Select a counter
+        # Select counter
         if routing == "round_robin":
             idx = customer_id % counters
 
         else:
-            # Select counter with the fewest customers
             idx = min(
                 range(counters),
                 key=lambda j: (
@@ -86,8 +85,9 @@ def simulate_checkout(
 
         res = resources[idx]
 
-        # NEW: Record service workload assigned to this counter
-        counter_workloads[idx] += service_time
+        # Record assigned service workload
+        counter_workloads[idx] += service_time * 60
+        counter_customers[idx] += 1
 
         with res.request() as req:
 
@@ -100,7 +100,9 @@ def simulate_checkout(
 
             yield env.timeout(service_time)
 
-            system_times.append(env.now - arrival_time)
+            system_times.append(
+                env.now - arrival_time
+            )
 
     def arrival_process():
 
@@ -118,20 +120,17 @@ def simulate_checkout(
 
     env.process(arrival_process())
 
-    # Run until all arrivals and service processes finish
+    # Complete all customer processes
     env.run()
 
-    # NEW: Calculate Allocation Efficiency using Jain's Index
+    # Calculate allocation efficiency
     total_workload = sum(counter_workloads)
+    sum_squared = sum(w ** 2 for w in counter_workloads)
 
-    if total_workload > 0:
+    if sum_squared > 0:
         allocation_efficiency = (
             total_workload ** 2
-            /
-            (
-                counters
-                * sum(x ** 2 for x in counter_workloads)
-            )
+            / (counters * sum_squared)
         ) * 100
     else:
         allocation_efficiency = None
@@ -163,15 +162,13 @@ def simulate_checkout(
             float(x * 60) for x in system_times
         ],
 
-        # NEW: Allocation efficiency
+        "counter_workloads_min": counter_workloads,
+
+        "counter_customers": counter_customers,
+
         "allocation_efficiency": (
             float(allocation_efficiency)
             if allocation_efficiency is not None
             else None
-        ),
-
-        # NEW: Individual counter workloads in minutes
-        "counter_workloads_min": [
-            float(x * 60) for x in counter_workloads
-        ]
+        )
     }
