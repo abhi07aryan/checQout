@@ -199,10 +199,11 @@ with tabs[4]:
     routing=st.selectbox("Customer routing policy",["shortest","round_robin"],format_func=lambda x:"Shortest estimated workload" if x=="shortest" else "Round robin")
     if st.button("Run simulation",type="primary"):
         sim=simulate_checkout(sim_lam,mu,int(sim_c),duration_hours=float(duration),routing=routing)
-        a,b,d=st.columns(3)
+        a,b,d,e=st.columns(4)
         a.metric("Customers served",sim["customers"])
         b.metric("Average waiting time",f"{sim['avg_wait_min']:.2f} min")
         d.metric("Maximum waiting time",f"{sim['max_wait_min']:.2f} min")
+        e.metric("Allocation Efficiency",f"{result['allocation_efficiency']:.2f}%")
         if sim["waits_min"]:
             st.plotly_chart(px.histogram(pd.DataFrame({"Waiting time (min)":sim["waits_min"]}),
                                          x="Waiting time (min)",nbins=25,title="Distribution of simulated waiting times"),
