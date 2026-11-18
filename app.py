@@ -22,7 +22,7 @@ with st.sidebar:
     max_c=st.number_input("Maximum available counters",min_value=1,max_value=30,value=6,step=1)
     counter_cost=st.number_input("Cost per active counter per hour (₹)",min_value=0.0,value=150.0,step=10.0)
     wait_cost=st.number_input("Waiting cost (₹ per customer-hour)",min_value=0.0,value=30.0,step=5.0)
-    max_wait=st.number_input("Maximum target queue wait (minutes)",min_value=0.0,value=7.0,step=1.0)
+    max_wait=st.number_input("Maximum target queue wait (minutes)",min_value=0.0,value=8.0,step=1.0)
 
 tabs=st.tabs(["Overview","Queue Analysis","Counter Optimization","Customer Allocation","Simulation","Data"])
 
@@ -193,9 +193,9 @@ with tabs[3]:
 with tabs[4]:
     st.subheader("Discrete-event simulation")
     c1,c2,c3=st.columns(3)
-    sim_lam=c1.number_input("Arrival rate",min_value=1.0,value=35.0,step=1.0,key="s_lam")
-    sim_c=c2.number_input("Counters",min_value=1,max_value=int(max_c),value=min(3,int(max_c)),step=1,key="s_c")
-    duration=c3.number_input("Simulation duration (hours)",min_value=1,max_value=24,value=4,step=1)
+    sim_lam=c1.number_input("Arrival rate",min_value=1.0,value=60.0,step=1.0,key="s_lam")
+    sim_c=c2.number_input("Counters",min_value=1,max_value=int(max_c),value=min(4,int(max_c)),step=1,key="s_c")
+    duration=c3.number_input("Simulation duration (hours)",min_value=1,max_value=24,value=3,step=1)
     routing=st.selectbox("Customer routing policy",["shortest","round_robin"],format_func=lambda x:"Shortest estimated workload" if x=="shortest" else "Round robin")
     if st.button("Run simulation",type="primary"):
         sim=simulate_checkout(sim_lam,mu,int(sim_c),duration_hours=float(duration),routing=routing)
