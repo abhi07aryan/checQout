@@ -5,10 +5,10 @@ import numpy as np
 
 
 def simulate_checkout(
-    lam,
-    mu,
-    counters,
-    duration_hours=4,
+    lam=60,
+    mu=30,
+    counters=4,
+    duration_hours=3,
     seed=7,
     routing="shortest"
 ):
@@ -22,9 +22,9 @@ def simulate_checkout(
     1. shortest: Counter with the fewest expected customers
     2. round_robin: Customers distributed cyclically
 
-    Arrival times and service requirements are generated
-    before simulation so both policies can be compared
-    using the same random customer data.
+    Allocation efficiency:
+    Calculated using Jain's Fairness Index based on
+    total service workload assigned to each counter.
     """
 
     if lam <= 0 or mu <= 0 or counters < 1 or duration_hours <= 0:
@@ -65,6 +65,9 @@ def simulate_checkout(
     waits = []
     system_times = []
 
+    # NEW: Track total service workload assigned to each counter
+    counter_workloads = [0.0] * counters
+
     def customer(customer_id, arrival_time, service_time):
 
         # Select a counter
@@ -72,8 +75,7 @@ def simulate_checkout(
             idx = customer_id % counters
 
         else:
-            # Number of customers waiting or being served
-            # divided by service rate
+            # Select counter with the fewest customers
             idx = min(
                 range(counters),
                 key=lambda j: (
@@ -83,6 +85,9 @@ def simulate_checkout(
             )
 
         res = resources[idx]
+
+        # NEW: Record service workload assigned to this counter
+        counter_workloads[idx] += service_time
 
         with res.request() as req:
 
@@ -113,8 +118,23 @@ def simulate_checkout(
 
     env.process(arrival_process())
 
-    # Run until all arrivals and their service processes finish
+    # Run until all arrivals and service processes finish
     env.run()
+
+    # NEW: Calculate Allocation Efficiency using Jain's Index
+    total_workload = sum(counter_workloads)
+
+    if total_workload > 0:
+        allocation_efficiency = (
+            total_workload ** 2
+            /
+            (
+                counters
+                * sum(x ** 2 for x in counter_workloads)
+            )
+        ) * 100
+    else:
+        allocation_efficiency = None
 
     return {
         "customers": len(waits),
@@ -141,5 +161,17 @@ def simulate_checkout(
 
         "system_times_min": [
             float(x * 60) for x in system_times
+        ],
+
+        # NEW: Allocation efficiency
+        "allocation_efficiency": (
+            float(allocation_efficiency)
+            if allocation_efficiency is not None
+            else None
+        ),
+
+        # NEW: Individual counter workloads in minutes
+        "counter_workloads_min": [
+            float(x * 60) for x in counter_workloads
         ]
     }
